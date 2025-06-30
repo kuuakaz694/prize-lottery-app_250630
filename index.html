@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>くじ引き景品抽選アプリ</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="くじ引き">
+    <link rel="apple-touch-icon" href="icon/icon-192.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.9.4/lottie.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            background-color: #FFFF00;
+            overflow: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 450px;
+            height: 100vh;
+            background-color: #FFFF00;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background-color: #FFFF00;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
+            overflow: hidden;
+        }
+
+        .screen.active {
+            opacity: 1;
+            visibility: visible;
+            position: relative;
+        }
+
+        .header-image, .footer-image {
+            width: 100%;
+            max-width: 100%;
+            height: 100px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        .header-image {
+            margin-bottom: 0px;
+        }
+
+        .footer-image {
+            margin-top: auto;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 15px;
+            width: 100%;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .app-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+
+        .lottie-container {
+            width: 100%;
+            max-width: 200px;
+            height: 120px;
+            margin: 5px auto;
+            flex-shrink: 0;
+        }
+
+        .file-input-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        .file-name {
+            font-size: auto;
+            color: #555;
+            word-break: break-all;
+            text-align: center;
+            max-height: 2.1em;
+            overflow: hidden;
+            line-height: 1.05em;
+        }
+
+        .action-button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            text-align: center;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .action-button.large {
+            width: 70%;
+            max-width: 200px;
+            font-size: 1.2em;
+            padding: 12px 25px;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        .action-button.small {
+            width: 55%;
+            max-width: 150px;
+            font-size: 0.3em;
+            padding: 6px 12px;
+            margin-bottom: 3px;
+        }
+
+        .action-button:not(.disabled) {
+            background-color: #FF4B4B;
+            color: white;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .action-button:not(.disabled):hover {
+            background-color: #E03C3C;
+            transform: translateY(-1px);
+        }
+
+        .action-button.disabled {
+            background-color: #CCCCCC;
+            color: #888888;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #course-buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 8px;
+            width: 100%;
+            align-items: center;
+            max-height: 150px;
+            overflow-y: auto;
+            flex-shrink: 1;
+            min-height: 0;
+        }
+
+        .course-button {
+            width: 65%;
+            max-width: 180px;
+            padding: 8px 15px;
+            border: 2px solid #FF4B4B;
+            border-radius: 6px;
+            background-color: white;
+            color: #FF4B4B;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
+            flex-shrink: 0;
+        }
+
+        .course-button:hover:not(.selected) {
+            background-color: #FFF0F0;
+            transform: translateY(-1px);
+        }
+
+        .course-button.selected {
+            background-color: #FF4B4B;
+            color: white;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .result-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            width: 100%;
+            text-align: center;
+            overflow-y: auto;
+        }
+
+        .result-prize {
+            font-size: auto;
+            color: #333;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .result-image {
+            max-width: 70%;
+            max-height: 200px;
+            height: auto;
+            object-fit: contain;
+            margin-bottom: 10px;
+            border: 2px solid #FFD700;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .result-strings {
+            font-size: auto;
+            color: #444;
+            margin-bottom: 15px;
+        }
+
+        #back-button {
+            background-color: #FF4B4B;
+            color: white;
+        }
+
+        #back-button:hover {
+            background-color: #E03C3C;
+        }
+
+        #drawing-screen .lottie-container {
+            width: 100%;
+            max-width: 100%;
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* スマホ専用の調整 */
+        @media screen and (max-height: 600px) {
+            .app-title {
+                font-size: 1.5em;
+                margin-bottom: 5px;
+            }
+            
+            .lottie-container {
+                height: 100px;
+            }
+            
+            .action-button.large {
+                font-size: 1.1em;
+                padding: 10px 20px;
+            }
+            
+            .course-button {
+                padding: 6px 12px;
+                font-size: 0.9em;
+            }
+            
+            #course-buttons-container {
+                max-height: 120px;
+            }
+        }
+
+        @media screen and (max-height: 500px) {
+            .header-image, .footer-image {
+                height: 40px;
+            }
+            
+            .app-title {
+                font-size: 1.3em;
+                margin-bottom: 3px;
+            }
+            
+            .lottie-container {
+                height: 80px;
+            }
+            
+            .action-button.small {
+                font-size: 0.5em;
+                padding: 5px 10px;
+            }
+            
+            #course-buttons-container {
+                max-height: 100px;
+            }
+        }
+
+        /* セーフエリア対応 */
+        @supports (padding-top: constant(safe-area-inset-top)) {
+            #app-container {
+                padding-top: constant(safe-area-inset-top);
+                padding-bottom: constant(safe-area-inset-bottom);
+                height: calc(100vh - constant(safe-area-inset-top) - constant(safe-area-inset-bottom));
+            }
+        }
+        @supports (padding-top: env(safe-area-inset-top)) {
+            #app-container {
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+                height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div id="top-screen" class="screen active">
+            <img src="images/title_002.png" alt="タイトル画像" class="header-image" onerror="this.style.display='none'">
+            <div class="main-content">
+                <h1 class="app-title">くじびき</h1>
+                <div class="lottie-container" id="top-lottie-animation"></div>
+                <div class="file-input-section">
+                    <button id="file-select-button" class="action-button small">ファイル選択</button>
+                    <span id="selected-file-name" class="file-name">ファイルが選択されていません</span>
+                </div>
+                <button id="file-load-button" class="action-button small">現在の在庫をダウンロード</button>
+
+                <div id="course-buttons-container">
+                </div>
+
+                <button id="start-button" class="action-button large disabled" disabled>スタート</button>
+            </div>
+            <img src="images/footer_001.png" alt="フッター画像" class="footer-image" onerror="this.style.display='none'">
+        </div>
+
+        <div id="drawing-screen" class="screen">
+            <div class="lottie-container" id="drawing-lottie-animation"></div>
+        </div>
+
+        <div id="result-screen" class="screen">
+            <div class="result-content">
+                <h2 id="result-prize" class="result-prize"></h2>
+                <img id="result-image" src="" alt="景品画像" class="result-image">
+                <p id="result-strings" class="result-strings"></p>
+                <button id="back-button" class="action-button small">戻る</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM要素の取得
+            const topScreen = document.getElementById('top-screen');
+            const drawingScreen = document.getElementById('drawing-screen');
+            const resultScreen = document.getElementById('result-screen');
+
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.xls,.xlsx';
+            fileInput.style.display = 'none';
+            document.body.appendChild(fileInput);
+
+            const fileSelectButton = document.getElementById('file-select-button');
+            const selectedFileNameSpan = document.getElementById('selected-file-name');
+            const fileLoadButton = document.getElementById('file-load-button');
+            const courseButtonsContainer = document.getElementById('course-buttons-container');
+            const startButton = document.getElementById('start-button');
+            const backButton = document.getElementById('back-button');
+
+            const resultPrize = document.getElementById('result-prize');
+            const resultImage = document.getElementById('result-image');
+            const resultStrings = document.getElementById('result-strings');
+
+            const topLottieAnimationContainer = document.getElementById('top-lottie-animation');
+            const drawingLottieAnimationContainer = document.getElementById('drawing-lottie-animation');
+
+            let prizeData = {};
+            let selectedCourse = null;
+            let currentBGM = null;
+
+            // Lottieアニメーションインスタンス
+            let topAnimation = null;
+            let drawingAnimation = null;
+
+            // 画面遷移関数
+            function showScreen(screenToShow) {
+                [topScreen, drawingScreen, resultScreen].forEach(screen => {
+                    if (screen === screenToShow) {
+                        screen.classList.add('active');
+                    } else {
+                        screen.classList.remove('active');
+                    }
+                });
+            }
+
+            // トップ画面のLottieアニメーション初期化（修正版）
+            function initTopLottie() {
+                // 既存のアニメーションがある場合は破棄
+                if (topAnimation) {
+                    topAnimation.destroy();
+                    topAnimation = null;
+                }
+                
+                // コンテナをクリア
+                topLottieAnimationContainer.innerHTML = '';
+                
+                // Lottieライブラリが利用可能な場合のみ実行
+                if (typeof lottie !== 'undefined') {
+                    try {
+                        // 少し遅延を入れて確実にコンテナがクリアされてから実行
+                        setTimeout(() => {
+                            topAnimation = lottie.loadAnimation({
+                                container: topLottieAnimationContainer,
+                                renderer: 'svg',
+                                loop: false, // トップアニメーションはループしない
+                                autoplay: true,
+                                path: 'animation/TOP_screen_001.json',
+                                rendererSettings: {
+                                    clearCanvas: true,
+                                    progressiveLoad: false,
+                                    hideOnTransparent: true
+                                }
+                            });
+
+                            topAnimation.addEventListener('data_failed', () => {
+                                console.log('トップアニメーション読み込み失敗');
+                                // フォールバック表示
+                                topLottieAnimationContainer.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;font-size:1.2em;color:#333;">🎯</div>';
+                            });
+
+                        }, 50);
+                    } catch (error) {
+                        console.log('トップアニメーションの読み込みに失敗しました:', error);
+                        // フォールバック表示
+                        topLottieAnimationContainer.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;font-size:1.2em;color:#333;">🎯</div>';
+                    }
+                } else {
+                    // Lottieが利用できない場合のフォールバック
+                    topLottieAnimationContainer.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;font-size:1.2em;color:#333;">🎯</div>';
+                }
+            }
+            
+            // 初期化
+            initTopLottie();
+
+
+            // イベントリスナー
+            fileSelectButton.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    selectedFileNameSpan.textContent = file.name;
+                    readExcelFile(file);
+                } else {
+                    selectedFileNameSpan.textContent = 'ファイルが選択されていません';
+                    clearCourseButtons();
+                    startButton.classList.add('disabled');
+                    startButton.disabled = true;
+                    prizeData = {};
+                    selectedCourse = null;
+                }
+            });
+
+            // Excelファイル読み込み関数
+            function readExcelFile(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    prizeData = {};
+                    workbook.SheetNames.forEach(sheetName => {
+                        const sheet = workbook.Sheets[sheetName];
+                        const json = XLSX.utils.sheet_to_json(sheet);
+                        prizeData[sheetName] = json;
+                    });
+
+                    console.log("読み込まれた景品データ:", prizeData);
+                    createCourseButtons();
+                    startButton.classList.add('disabled');
+                    startButton.disabled = true;
+                    selectedCourse = null;
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            // コースボタン生成関数
+            function createCourseButtons() {
+                clearCourseButtons();
+                Object.keys(prizeData).forEach(courseName => {
+                    const button = document.createElement('button');
+                    button.classList.add('course-button');
+                    button.textContent = courseName;
+                    button.addEventListener('click', () => {
+                        selectCourse(courseName, button);
+                    });
+                    courseButtonsContainer.appendChild(button);
+                });
+            }
+
+            function clearCourseButtons() {
+                courseButtonsContainer.innerHTML = '';
+            }
+
+            // コース選択関数
+            function selectCourse(courseName, clickedButton) {
+                document.querySelectorAll('.course-button').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+
+                clickedButton.classList.add('selected');
+                selectedCourse = courseName;
+
+                startButton.classList.remove('disabled');
+                startButton.disabled = false;
+            }
+
+            // スタートボタン
+            startButton.addEventListener('click', () => {
+                if (selectedCourse && prizeData[selectedCourse]) {
+                    startLottery();
+                } else {
+                    alert('ファイルを選択し、コースを選んでからスタートしてください。');
+                }
+            });
+
+            // 抽選開始関数（修正版）
+            function startLottery() {
+                if (currentBGM) {
+                    currentBGM.pause();
+                    currentBGM.currentTime = 0;
+                }
+                
+                showScreen(drawingScreen);
+
+                const availablePrizes = prizeData[selectedCourse].filter(p => p.quantity > 0);
+
+                if (availablePrizes.length === 0) {
+                    alert('このコースの景品は全てなくなりました！');
+                    showScreen(topScreen);
+                    return;
+                }
+
+                // 全体の個数総量からランダムに選択
+                const weightedPrizes = [];
+                availablePrizes.forEach(p => {
+                    for (let i = 0; i < p.quantity; i++) {
+                        weightedPrizes.push(p);
+                    }
+                });
+
+                const randomIndex = Math.floor(Math.random() * weightedPrizes.length);
+                const selectedPrize = weightedPrizes[randomIndex];
+
+                // 抽選された景品のquantityを減らす
+                const originalPrizeIndex = prizeData[selectedCourse].findIndex(p => p.prize === selectedPrize.prize);
+                if (originalPrizeIndex !== -1) {
+                    prizeData[selectedCourse][originalPrizeIndex].quantity--;
+                }
+
+                console.log('選択された景品:', selectedPrize);
+
+                // BGMを先に再生開始
+                if (selectedPrize.BGM) {
+                    try {
+                        currentBGM = new Audio(`sound/${selectedPrize.BGM}`);
+                        currentBGM.play().catch(e => console.error("BGM再生エラー:", e));
+                    } catch (error) {
+                        console.error("BGM読み込みエラー:", error);
+                    }
+                }
+
+                // アニメーションコンテナを完全にクリア
+                drawingLottieAnimationContainer.innerHTML = '';
+                
+                // 前のアニメーションインスタンスの完全な破棄
+                if (drawingAnimation) {
+                    drawingAnimation.destroy();
+                    drawingAnimation = null; // 明示的にnullを設定
+                }
+
+                let animationDuration = 3000; // デフォルトのアニメーション時間（3秒）
+
+                if (typeof lottie !== 'undefined' && selectedPrize.anime) {
+                    try {
+                        // 少し遅延してからアニメーション読み込み
+                        setTimeout(() => {
+                            drawingAnimation = lottie.loadAnimation({
+                                container: drawingLottieAnimationContainer,
+                                renderer: 'svg',
+                                loop: false,
+                                autoplay: true,
+                                path: `animation/${selectedPrize.anime}`,
+                                // レンダラー設定を追加
+                                rendererSettings: {
+                                    clearCanvas: true,
+                                    progressiveLoad: false,
+                                    hideOnTransparent: true
+                                }
+                            });
+
+                            // アニメーション完了のイベントリスナー
+                            drawingAnimation.addEventListener('complete', () => {
+                                console.log('Lottieアニメーション完了');
+                                displayResult(selectedPrize);
+                            });
+
+                            // エラーハンドリングの改善
+                            drawingAnimation.addEventListener('data_failed', () => {
+                                console.log('Lottieアニメーション読み込み失敗、タイマーでフォールバック');
+                                setTimeout(() => {
+                                    displayResult(selectedPrize);
+                                }, animationDuration);
+                            });
+
+                            // 読み込み失敗時のハンドリング
+                            drawingAnimation.addEventListener('config_ready', () => {
+                                console.log('Lottieアニメーション設定完了');
+                            });
+
+                        }, 100); // 100msの遅延
+
+                    } catch (error) {
+                        console.error("Lottieアニメーション読み込みエラー:", error);
+                        // エラーの場合はタイマーで結果表示
+                        setTimeout(() => {
+                            displayResult(selectedPrize);
+                        }, animationDuration);
+                    }
+                } else {
+                    // Lottieが利用できない場合やアニメーションファイルがない場合
+                    console.log('Lottieまたはアニメーションファイルが利用できません。タイマーで結果表示します。');
+                    drawingLottieAnimationContainer.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;font-size:2em;color:#333;">抽選中...</div>';
+                    
+                    setTimeout(() => {
+                        displayResult(selectedPrize);
+                    }, animationDuration);
+                }
+
+                // 安全のためのタイムアウト（最大10秒で強制的に結果表示）
+                setTimeout(() => {
+                    if (!resultScreen.classList.contains('active')) {
+                        console.log('タイムアウトにより強制的に結果表示');
+                        displayResult(selectedPrize);
+                    }
+                }, 8000);
+            }
+
+            // 結果表示関数
+            function displayResult(prize) {
+                console.log('結果表示:', prize);
+                resultPrize.textContent = prize.prize;
+                
+                // 画像の設定
+                if (prize.image) {
+                    resultImage.src = `images/${prize.image}`;
+                    resultImage.onerror = () => {
+                        resultImage.src = 'images/img_0.png'; // フォールバック画像
+                        resultImage.onerror = null; // 無限ループを防ぐ
+                    };
+                } else {
+                    resultImage.src = 'images/img_0.png';
+                }
+                
+                resultImage.alt = prize.prize;
+                resultStrings.textContent = prize.strings || 'おめでとうございます！';
+                
+                showScreen(resultScreen);
+            }
+
+            // 戻るボタン（修正版）
+            backButton.addEventListener('click', () => {
+                if (currentBGM) {
+                    currentBGM.pause();
+                    currentBGM.currentTime = 0;
+                }
+                
+                // 抽選アニメーションの完全な破棄
+                if (drawingAnimation) {
+                    drawingAnimation.destroy();
+                    drawingAnimation = null;
+                }
+                drawingLottieAnimationContainer.innerHTML = '';
+                
+                showScreen(topScreen);
+                initTopLottie();
+                
+                // コース選択状態をリセット
+                document.querySelectorAll('.course-button').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+                startButton.classList.add('disabled');
+                startButton.disabled = true;
+                selectedCourse = null;
+            });
+
+            // 在庫データダウンロード機能
+            fileLoadButton.addEventListener('click', () => {
+                if (Object.keys(prizeData).length === 0) {
+                    alert('先にExcelファイルを読み込んでください。');
+                    return;
+                }
+
+                const wb = XLSX.utils.book_new();
+
+                for (const sheetName in prizeData) {
+                    const ws = XLSX.utils.json_to_sheet(prizeData[sheetName]);
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                }
+
+                const date = new Date();
+                const dateStr = date.getFullYear().toString() +
+                                (date.getMonth() + 1).toString().padStart(2, '0') +
+                                date.getDate().toString().padStart(2, '0');
+                const timeStr = date.getHours().toString().padStart(2, '0') +
+                                date.getMinutes().toString().padStart(2, '0');
+                const originalFileName = selectedFileNameSpan.textContent.replace(/\.(xls|xlsx)$/, '');
+                const newFileName = `${originalFileName}_updated_${dateStr}_${timeStr}.xlsx`;
+
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                saveAs(new Blob([wbout], { type: 'application/octet-stream' }), newFileName);
+            });
+
+            // Service Worker 登録
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('service-worker.js')
+                        .then(registration => {
+                            console.log('Service Worker 登録成功:', registration.scope);
+                        })
+                        .catch(error => {
+                            console.error('Service Worker 登録失敗:', error);
+                        });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

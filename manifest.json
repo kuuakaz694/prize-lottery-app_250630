@@ -1,0 +1,21 @@
+{
+    "name": "くじ引き景品抽選アプリ",
+    "short_name": "くじ引き",
+    "description": "ローカルファイルから景品を読み込み抽選するアプリ",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#FFFF00",
+    "theme_color": "#FFFF00",
+    "icons": [
+        {
+            "src": "icon/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icon/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
